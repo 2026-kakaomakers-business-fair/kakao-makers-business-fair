@@ -1,53 +1,7 @@
-const $=selector=>document.querySelector(selector);
-const form=$('#proposal');
-form.addEventListener('submit',event=>event.preventDefault());
-$('#policyToggle').onclick=()=>{const open=$('#policy').hidden;$('#policy').hidden=!open;$('#policyToggle').setAttribute('aria-expanded',String(open));$('#policyToggle').textContent=open?'접기':'내용 보기';};
-
-const filesInput=$('#files');
-let selectedFiles=[];
-$('#features').addEventListener('input',()=>{$('#charCount').textContent=$('#features').value.length;});
-$('#category').addEventListener('change',()=>{
-  const other=$('#other');
-  const show=$('#category').value==='기타';
-  other.classList.toggle('hidden',!show);
-  other.required=show;
-  if(!show) other.value='';
-});
-$('#phone').addEventListener('input',()=>{
-  const digits=$('#phone').value.replace(/\D/g,'').slice(0,11);
-  $('#phone').value=digits.length>7?digits.slice(0,3)+'-'+digits.slice(3,7)+'-'+digits.slice(7):digits.length>3?digits.slice(0,3)+'-'+digits.slice(3):digits;
-});
-function renderFiles(){
-  const list=$('#fileList');
-  list.replaceChildren();
-  selectedFiles.forEach((file,index)=>{
-    const item=document.createElement('li');
-    const name=document.createElement('span');
-    name.textContent=file.name;
-    const remove=document.createElement('button');
-    remove.type='button';
-    remove.textContent='×';
-    remove.setAttribute('aria-label',file.name+' 첨부 취소');
-    remove.onclick=()=>{selectedFiles.splice(index,1);renderFiles();};
-    item.append(name,remove);
-    list.append(item);
-  });
-}
-function addFiles(files){
-  const incoming=Array.from(files);
-  if(incoming.some(file=>!/\.(pdf|ppt|pptx|jpe?g|png)$/i.test(file.name))){
-    $('#fileError').textContent='PDF, PPT, PPTX, JPG, PNG 파일을 선택해 주세요.';
-    return;
-  }
-  if(selectedFiles.length+incoming.length>3){
-    $('#fileError').textContent='파일은 최대 3개까지 첨부할 수 있습니다.';
-    return;
-  }
-  selectedFiles.push(...incoming);
-  $('#fileError').textContent='';
-  renderFiles();
-}
-$('#filePicker').onclick=()=>filesInput.click();
-filesInput.addEventListener('change',()=>{addFiles(filesInput.files);filesInput.value='';});
-$('#dropzone').addEventListener('dragover',event=>event.preventDefault());
-$('#dropzone').addEventListener('drop',event=>{event.preventDefault();addFiles(event.dataTransfer.files);});
+const $=s=>document.querySelector(s);
+let selectedFiles=[];let submitting=false;let requestId=crypto.randomUUID();const form=$('#proposal');
+function progress(){}
+form.addEventListener('input',progress);form.addEventListener('change',()=>{const other=new FormData(form).get('category')==='기타';$('#other').classList.toggle('hidden',!other);$('#other').required=other;progress()});$('#features').addEventListener('input',e=>$('#charCount').textContent=e.target.value.length);$('#phone').addEventListener('input',e=>{let v=e.target.value.replace(/\D/g,'').slice(0,11);e.target.value=v.length>7?v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7):v.length>3?v.slice(0,3)+'-'+v.slice(3):v});$('#policyToggle').onclick=()=>{let open=$('#policy').hidden;$('#policy').hidden=!open;$('#policyToggle').setAttribute('aria-expanded',String(open));$('#policyToggle').textContent=open?'접기':'내용 보기'};
+function renderFiles(){const list=$('#fileList');list.replaceChildren();selectedFiles.forEach((file,i)=>{let li=document.createElement('li');let label=document.createElement('span');label.textContent=file.name+' · '+(file.size/1024/1024).toFixed(1)+'MB';let btn=document.createElement('button');btn.type='button';btn.textContent='×';btn.setAttribute('aria-label',file.name+' 삭제');btn.onclick=()=>{selectedFiles.splice(i,1);renderFiles()};li.append(label,btn);list.append(li)})}
+function addFiles(files){$('#fileError').textContent='';for(const file of files){if(selectedFiles.length>=3){$('#fileError').textContent='파일은 최대 3개까지 첨부할 수 있어요.';break}if(!/\.(pdf|ppt|pptx|jpe?g|png)$/i.test(file.name)){$('#fileError').textContent='PDF, PPT, PPTX, JPG, PNG 파일을 선택해 주세요.';continue}if(file.size>10*1024*1024||file.size===0){$('#fileError').textContent='내용이 있는 10MB 이하의 파일을 선택해 주세요.';continue}if(!selectedFiles.some(f=>f.name===file.name&&f.size===file.size))selectedFiles.push(file)}renderFiles();$('#files').value=''}$('#filePicker').onclick=()=>$('#files').click();$('#files').onchange=e=>addFiles(e.target.files);$('#dropzone').ondragover=e=>{e.preventDefault();e.currentTarget.style.borderColor='#728a40'};$('#dropzone').ondragleave=e=>e.currentTarget.style.borderColor='';$('#dropzone').ondrop=e=>{e.preventDefault();e.currentTarget.style.borderColor='';addFiles(e.dataTransfer.files)};
+form.addEventListener('submit',async e=>{e.preventDefault();if(submitting)return;$('#formError').textContent='';for(const input of form.querySelectorAll('input[required],textarea[required]')){if(input.type!=='checkbox'&&input.type!=='radio')input.value=input.value.trim()}if(!form.checkValidity()){$('#formError').textContent='필수 항목과 입력 형식을 확인해 주세요. 연락처는 010-0000-0000 형식으로 작성해 주세요.';form.reportValidity();return}const data=new FormData(form);if(data.get('link')&&!/^https?:\/\//i.test(data.get('link'))){$('#formError').textContent='자료 링크는 https:// 또는 http://로 시작해야 해요.';$('#link').focus();return}data.delete('files');selectedFiles.forEach(f=>data.append('attachments',f));data.set('requestId',requestId);submitting=true;$('#submitButton').disabled=true;$('#submitButton').textContent='제출하기';try{const result=await window.sendProposal(data,selectedFiles);$('#receiptId').textContent=result.receipt;$('#receiptCompany').textContent=data.get('company');$('#receiptProduct').textContent=data.get('product');form.reset();selectedFiles=[];renderFiles();$('#application').hidden=true;$('#success').hidden=false;$('#successHeading').focus({preventScroll:true});$('#apply').scrollIntoView({behavior:'smooth',block:'start'});requestId=crypto.randomUUID()}catch(error){$('#formError').textContent=error.message||'인터넷 연결을 확인한 후 다시 시도해 주세요. 입력하신 내용은 유지됩니다.'}finally{submitting=false;$('#submitButton').disabled=false;$('#submitButton').innerHTML='제출하기'}});$('#another').onclick=()=>{form.reset();selectedFiles=[];renderFiles();$('#other').classList.add('hidden');$('#other').required=false;$('#charCount').textContent='0';$('#policy').hidden=true;$('#policyToggle').textContent='내용 보기';$('#policyToggle').setAttribute('aria-expanded','false');$('#formError').textContent='';$('#fileError').textContent='';$('#success').hidden=true;$('#application').hidden=false;progress();$('#company').focus()};

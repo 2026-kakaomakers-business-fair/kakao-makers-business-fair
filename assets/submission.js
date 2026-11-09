@@ -1,4 +1,7 @@
-// Intake disabled: external Google access has been revoked.
-window.sendProposal = async function () {
-  throw new Error('현재 입점 제안 접수가 중지되어 있습니다.');
+// GitHub Pages preview only. No request, upload, storage or Google connection.
+let previewSequence=0;
+window.sendProposal=async function(){
+  await new Promise(resolve=>setTimeout(resolve,500));
+  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format().replaceAll('-','');
+  return {receipt:'MK-'+day+'-'+String(++previewSequence).padStart(4,'0')};
 };
