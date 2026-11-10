@@ -1,7 +1,7 @@
 // The Apps Script endpoint stores proposals; GitHub Pages keeps the visible UI.
 (() => {
   const endpoint = 'https://script.google.com/macros/s/AKfycbyo0yfivZgPkyRa9Oqsa44MDVa0sCAAJI884DxXLMnnz08FS1AkjwJGNsCTRba1jig7ng/exec';
-  const allowedOrigin = 'https://lilyhw-commits.github.io';
+  const allowedOrigin = 'https://2026-kakaomakers-business-fair.github.io';
   const messageType = 'makers-proposal-result';
   const connectionError = '저장 결과를 확인하지 못했어요. 잠시 후 다시 제출해 주세요. 입력 내용은 유지됩니다.';
 
